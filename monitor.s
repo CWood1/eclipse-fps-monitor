@@ -9,11 +9,22 @@
 
 	org 0100
 
-start:	
-	ELEF 2, banner
-	JSR print
+start:
+	NIOS TTI
 
-	ELEF 0, tst
+	ELEF 2, banner
+	EJSR print
+
+doprompt:	
+	ELEF 2, prompt
+	EJSR print
+
+	ELEF 0, command_str
+	PSH 0, 0
+	JSR input
+	POP 0, 0
+
+	ELEF 0, command_str
 	PSH 0, 0
 	JSR string_to_oct
 	POP 0, 0
@@ -25,14 +36,64 @@ start:
 	POP 0, 1
 
 	ELEF 2, targetstr
-	JSR print
+	EJSR print
 
-	HALT
+	ELEF 2, nl
+	EJSR print
+
+	JMP doprompt
 	
 	// ============================================================
 	// Utility Functions
 	// ============================================================
 
+	// input - Get a line of input from the terminal
+	//
+	// Parameters:
+	// - Stack: pointer to where to put the string
+	//
+	// No return value
+input:
+	SAVE 0
+	LDA 2, -5, 3
+
+	// Load register 1 with '\r'
+	ELEF 1, 015
+
+input_loop:
+	SKPDN TTI
+	JMP input_loop
+	DIAS 0, TTI
+
+input_outloop:
+	SKPBZ TTO
+	JMP input_outloop
+	DOAS 0, TTO
+
+	// Check if the received byte is \n
+	SUB 0, 1, SNR
+	JMP input_done
+
+	// Store the byte, incerement the pointer
+	STA 0, 0, 2
+	INC 2, 2
+
+	// Reload the \r (this is only necessary as dgasm doesn't support SUB# yet)
+	ELEF 1, 015
+	JMP input_loop
+
+input_done:
+	SKPBZ TTO
+	JMP input_done
+
+	ELEF 0, 012
+	DOAS 0, TTO
+	
+	XOR 0, 0
+	STA 0, 0, 2
+
+	RTN
+	
 	// oct_to_string - Turn a given word into an octal string
 	//
 	// Parameters:
@@ -52,8 +113,16 @@ oct_to_string:
 	JMP oct_to_string_zero
 
 	// Set up the string offset
+	ELEF 2, 6
+	STA 2, 1, 3
+
+	// NULL terminator
 	XOR 1, 1
-	STA 1, 1, 3
+	STA 1, 1, 2
+
+	LDA 1, 1
+	SUB 1, 2
+	STA 2, 1, 3
 
 oct_to_string_loop:	
 	// Get the digit, AND off the bottom 3 bits
@@ -74,7 +143,10 @@ oct_to_string_loop:
 	STA 1, 0, 2
 
 	// Increment the offset
-	INC 0, 0
+	ELEF 1, 1
+	SUB 1, 0, SNR
+	JMP oct_to_string_pad_done
+
 	STA 0, 1, 3
 
 	// Shift the number down and go round again
@@ -88,6 +160,26 @@ oct_to_string_loop:
 	MOV 2, 2, SZR
 	JMP oct_to_string_loop
 
+oct_to_string_pad_loop:
+	ELEF 1, 060
+
+	// Get the address of the string
+	LDA 2, -5, 3
+	LDA 0, 1, 3
+	ADD 0, 2
+
+	// Store the character
+	STA 1, 0, 2
+
+	// Increment the offset
+	ELEF 1, 1
+	SUB 1, 0, SNR
+	JMP oct_to_string_pad_done
+
+	STA 0, 1, 3
+	JMP oct_to_string_pad_loop
+
+oct_to_string_pad_done:	
 	RTN
 
 oct_to_string_zero:
@@ -246,11 +338,12 @@ print_done:
 	RTN
 
 	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\n"
-	var right = "Right\r\n"
-	var wrong = "Wrong\r\n"
+	var prompt = "> "
+	var nl = "\r\n"
 
 	var tst = "123456"
 	var targetstr = "         "
+	var command_str = "                                        "
 
 stack_exhausted:	
 	HALT
