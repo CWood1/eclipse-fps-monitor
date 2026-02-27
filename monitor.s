@@ -2,10 +2,10 @@
 	dev TTO = 011
 
 	org 040
-	var stackptr = 01000
-	var frameptr = 01000
-	var stacklim = 01500
-	var x = 0600
+	var stackptr = stack_top
+	var frameptr = stack_top
+	var stacklim = stack_top + 02000
+	var exhaustedptr = stack_exhausted
 
 	org 0100
 
@@ -13,21 +13,95 @@ start:
 	ELEF 2, banner
 	JSR print
 
-	ELEF 0, tst2
-	PSH 0,0
+	ELEF 0, tst
+	PSH 0, 0
 	JSR string_to_oct
-	MOV 1, 1, SZR
-	JMP start_right
+	POP 0, 0
 
-	ELEF 2, wrong
+	PSH 2, 2
+	ELEF 0, targetstr
+	PSH 0, 0
+	JSR oct_to_string
+	POP 0, 1
+
+	ELEF 2, targetstr
 	JSR print
-	HALT
 
-start_right:
-	ELEF 2, right
-	JSR print
 	HALT
+	
+	// ============================================================
+	// Utility Functions
+	// ============================================================
 
+	// oct_to_string - Turn a given word into an octal string
+	//
+	// Parameters:
+	// - Stack: the number
+	// - Stack: pointer to where to put the string
+	//
+	// No return value
+	//
+	// Stack variables:
+	// - Offset 0: Current offset into the string
+oct_to_string:
+	SAVE 1
+
+	// If number is 0, print 0 and exit
+	LDA 2, -6, 3
+	MOV 2, 2, SNR
+	JMP oct_to_string_zero
+
+	// Set up the string offset
+	XOR 1, 1
+	STA 1, 1, 3
+
+oct_to_string_loop:	
+	// Get the digit, AND off the bottom 3 bits
+	LDA 2, -6, 3
+	ELEF 1, 7
+	AND 1, 2
+
+	// Add '0' to it
+	ELEF 1, 060
+	ADD 2, 1
+
+	// Get the address of the string
+	LDA 2, -5, 3
+	LDA 0, 1, 3
+	ADD 0, 2
+
+	// Store the character
+	STA 1, 0, 2
+
+	// Increment the offset
+	INC 0, 0
+	STA 0, 1, 3
+
+	// Shift the number down and go round again
+	LDA 2, -6, 3
+	MOVZR 2,2
+	MOVZR 2,2
+	MOVZR 2,2
+	STA 2, -6, 3
+
+	// If it isn't zero, go round again
+	MOV 2, 2, SZR
+	JMP oct_to_string_loop
+
+	RTN
+
+oct_to_string_zero:
+	// String is '0'
+	LDA 2, -5, 3
+	ELEF 1, 060
+	STA 1, 0, 2
+
+	// NULL terminator
+	XOR 1, 1
+	STA 1, 1, 2
+
+	RTN
+	
 	// string_to_oct - Turn a given string into an octal number
 	//
 	// Parameters:
@@ -175,8 +249,10 @@ print_done:
 	var right = "Right\r\n"
 	var wrong = "Wrong\r\n"
 
-	var tst1 = "123456"
-	var tst2 = "abc"
+	var tst = "123456"
+	var targetstr = "         "
 
-	org 0600
+stack_exhausted:	
 	HALT
+
+stack_top:	
