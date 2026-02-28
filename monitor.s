@@ -113,16 +113,21 @@ oct_to_string:
 	JMP oct_to_string_zero
 
 	// Set up the string offset
-	ELEF 2, 6
+	ELEF 2, 5
 	STA 2, 1, 3
+
+	// Get the address of the string
+	LDA 2, -5, 3
+	LDA 0, 1, 3
+	ADD 0, 2
 
 	// NULL terminator
 	XOR 1, 1
 	STA 1, 1, 2
 
-	LDA 1, 1
-	SUB 1, 2
-	STA 2, 1, 3
+	ELEF 1, 1
+	SUB 1, 0, SNR
+	STA 0, 1, 3
 
 oct_to_string_loop:	
 	// Get the digit, AND off the bottom 3 bits
@@ -143,9 +148,11 @@ oct_to_string_loop:
 	STA 1, 0, 2
 
 	// Increment the offset
-	ELEF 1, 1
-	SUB 1, 0, SNR
+	MOV 0, 0, SNR
 	JMP oct_to_string_pad_done
+
+	ELEF 1, 1
+	SUB 1, 0
 
 	STA 0, 1, 3
 
@@ -172,9 +179,11 @@ oct_to_string_pad_loop:
 	STA 1, 0, 2
 
 	// Increment the offset
-	ELEF 1, 1
-	SUB 1, 0, SNR
+	MOV 0, 0, SNR
 	JMP oct_to_string_pad_done
+
+	ELEF 1, 1
+	SUB 1, 0
 
 	STA 0, 1, 3
 	JMP oct_to_string_pad_loop
@@ -341,9 +350,8 @@ print_done:
 	var prompt = "> "
 	var nl = "\r\n"
 
-	var tst = "123456"
-	var targetstr = "         "
-	var command_str = "                                        "
+	var targetstr resv 10
+	var command_str resv 20
 
 stack_exhausted:	
 	HALT
