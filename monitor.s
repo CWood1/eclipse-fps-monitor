@@ -21,31 +21,140 @@ doprompt:
 
 	ELEF 0, command_str
 	PSH 0, 0
-	JSR input
+	EJSR input
 	POP 0, 0
 
 	ELEF 0, command_str
-	PSH 0, 0
-	JSR string_to_oct
-	POP 0, 0
+	ELEF 1, command_tokens
+	ELEF 2, 8
+	PSH 0, 2
+	EJSR strtok
+	POP 0, 2
 
-	PSH 2, 2
-	ELEF 0, targetstr
-	PSH 0, 0
-	JSR oct_to_string
-	POP 0, 1
+	// Print out the first two tokens
+	ELEF 2, command_tokens
+	LDA 0, 0, 2
+	MOV 0, 0, SNR
+	JMP doprompt
 
-	ELEF 2, targetstr
+	MOV 0, 2
+	EJSR print
+
+	ELEF 2, nl
+	EJSR print
+
+	ELEF 2, command_tokens
+	LDA 0, 1, 2
+	MOV 0, 0, SNR
+	JMP doprompt
+
+	MOV 0, 2
 	EJSR print
 
 	ELEF 2, nl
 	EJSR print
 
 	JMP doprompt
+
+	var command_str resv 80
+	var command_tokens resv 9
+
+	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\n"
+	var prompt = "> "
+	var nl = "\r\n"
 	
 	// ============================================================
 	// Utility Functions
 	// ============================================================
+
+	// strtok - Tokenise a string
+	//
+	// Parameters:
+	// - Stack: pointer to the string to tokenise. Modify in place.
+	// - Stack: pointer to a buffer in which to emplace substrings.
+	// - Stack: Max tokens (buffer must be N + 1 in size).
+	//
+	// No return value
+strtok:
+	SAVE 0
+
+	// Check that max tokens isn't 0
+	LDA 0, -5, 3
+	MOV 0, 0, SNR
+	JMP strtok_done
+
+	// Check the string isn't empty
+	LDA 2, -7, 3
+	LDA 0, 0, 2
+	MOV 0, 0, SNR
+	JMP strtok_done
+
+strtok_skipspaces:
+	// Compare to space
+	ELEF 1, 040
+	SUB 0, 1, SZR
+	JMP strtok_found_nonspace
+
+	INC 2, 2
+	LDA 0, 0, 2
+	JMP strtok_skipspaces
+
+strtok_found_nonspace:
+	MOV 0, 0, SNR
+	JMP strtok_done
+
+	// Store the start of the next string in the string pointer
+	STA 2, -7, 3
+
+	// Also store it in the table
+	MOV 2, 1
+	LDA 2, -6, 3
+	STA 1, 0, 2
+
+	// Move to the entry in the table
+	INC 2, 2
+	STA 2, -6, 3
+
+strtok_find_end_of_current_string:
+	// If it's a space, we've found the end of the current token
+	ELEF 1, 040
+	SUB 0, 1, SNR
+	JMP strtok_foundspace
+
+	// If it's a NULL, we've found the end of the whole string
+	MOV 0, 0, SNR
+	JMP strtok_done
+
+	// Else, increment by a character and go again
+	LDA 2, -7, 3
+	INC 2, 2
+	STA 2, -7, 3
+	LDA 0, 0, 2
+
+	JMP strtok_find_end_of_current_string
+
+strtok_foundspace:
+	// Mark the current character as NULL
+	LDA 2, -7, 3
+	XOR 0, 0
+	STA 0, 0, 2
+
+	// Increment by a character
+	LDA 2, -7, 3
+	INC 2, 2
+	STA 2, -7, 3
+	LDA 0, 0, 2
+
+	// Find the start of the next token
+	JMP strtok_skipspaces
+
+strtok_done:
+	// Set the pointer to 0, and return
+	LDA 2, -6, 3
+	XOR 0, 0
+	STA 0, 0, 2
+
+	RTN
 
 	// input - Get a line of input from the terminal
 	//
@@ -345,13 +454,6 @@ print_done:
 	SKPBZ TTO
 	JMP print_done
 	RTN
-
-	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\n"
-	var prompt = "> "
-	var nl = "\r\n"
-
-	var targetstr resv 10
-	var command_str resv 20
 
 stack_exhausted:	
 	HALT
