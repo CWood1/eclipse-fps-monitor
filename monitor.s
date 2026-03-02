@@ -1,5 +1,29 @@
 	dev TTI = 010
 	dev TTO = 011
+	dev FPU = 054
+
+	const FN_STOP  = 0100000
+	const FN_START = 0040000
+	const FN_CONT  = 0020000
+	const FN_STEP  = 0010000
+	const FN_RESET = 0004000
+	const FN_EXAM  = 0002000
+	const FN_DEP   = 0001000
+	const FN_BREAK = 0000400
+	const FN_INC3  = 0000300
+	const FN_INC2  = 0000200
+	const FN_INC1  = 0000100
+	const FN_WORD3 = 0000060
+	const FN_WORD2 = 0000040
+	const FN_WORD1 = 0000020
+
+	const FN_REG_TMA = 03
+
+	const CMD_REG_SR = 0021000
+	const CMD_REG_FN = 0022000
+	const CMD_REG_LT = 0023000
+	const CMD_PIO    = 0000030
+	const CMD_WR     = 0000001
 
 	org 040
 	var stackptr = stack_top
@@ -11,6 +35,8 @@
 
 start:
 	NIOS TTI
+	NIOP FPU
+	NIOS FPU
 
 	ELEF 2, banner
 	EJSR print
@@ -49,6 +75,7 @@ doprompt:
 	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\n"
 	var prompt = "> "
 	var nl = "\r\n"
+	var reg_not_found = "Register not found\r\n"
 
 	// ============================================================
 	// Commands
@@ -57,12 +84,9 @@ doprompt:
 	var examine_command_name = "x"
 
 top_level_command_table:
-	var deposit_command_name_p = deposit_command_name
-	var deposit_command_func = dep
-	var examine_command_name_p = examine_command_name
-	var examine_command_func = exam
-	var end = 0
-	var end2 = 0
+	dw deposit_command_name, dep
+	dw examine_command_name, exam
+	dw 0, 0
 
 	// dep - Deposit a value into the AP
 	//
@@ -74,22 +98,29 @@ top_level_command_table:
 	// - Offset 0: address to write to
 	//
 	// NOTE: for testing purposes, this doesn't (yet) talk to the AP
+
+	var tma = "tma"
+dep_tbl:
+	dw tma, FN_DEP | FN_REG_TMA
+	dw 0, 0
+
+exam_tbl:
+	dw tma, FN_EXAM | FN_REG_TMA
+	dw 0, 0
+
 dep:
 	SAVE 1
 
-	// First, convert the address into octal
-	LDA 2, -11, 3
-	MOV 2, 2, SNR
-	JMP dep_done
-
-	PSH 2, 2
-	EJSR string_to_oct
+	// First, get the actual function to run
+	ELEF 0, dep_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP dep_done
-
-	// Save the result to the stack
+	JMP dep_not_found
 	STA 2, 1, 3
 
 	// Next, convert the value into octal
@@ -104,38 +135,58 @@ dep:
 	MOV 1, 1, SZR
 	JMP dep_done
 
-	// Put value in AC1, address in AC2
-	MOV 2, 1
-	LDA 2, 1, 3
+	// Set the switches to the value we wish to write
+	MOV 2, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
 
-	// Store the address
-	STA 1, 0, 2
+	// Write the value
+	LDA 0, 1, 3
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
 
 dep_done:
+	RTN
+
+dep_not_found:
+	ELEF 2, reg_not_found
+	EJSR print
+
 	RTN
 
 	// exam - Examine a value from the AP
 	//
 	// Parameters:
 	// - Stack: pointer to address string
-	//
-	// NOTE: for testing purposes, this doesn't (yet) talk to the AP
 exam:
 	SAVE 1
 
-	// First, convert the address into octal
-	LDA 2, -11, 3
-	MOV 2, 2, SNR
-	JMP dep_done
-
-	PSH 2, 2
-	EJSR string_to_oct
+	// First, get the actual function to run
+	ELEF 0, exam_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
 	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exam_not_found
 
 	MOV 1, 1, SZR
 	JMP exam_done
 
+	// Write the value
 	MOV 2, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, CMD_REG_LT | CMD_PIO
+	DOA 1, FPU
+	DIB 0, FPU
+
 	ELEF 1, exam_result
 
 	PSH 0, 1
@@ -151,11 +202,75 @@ exam:
 exam_done:
 	RTN
 
+exam_not_found:
+	ELEF 2, reg_not_found
+	EJSR print
+
+	RTN
+
 	var exam_result resv 7
 	
 	// ============================================================
 	// Utility Functions
 	// ============================================================
+
+	// gettbl - Get a value out of a table, according to a string key
+	//
+	// Parameters:
+	// - Stack: the table
+	// - Stack: the string
+	//
+	// Returns:
+	// - AC1: is present (0 = success, 1 = fail)
+	// - AC2: the value
+	//
+	// Stack variables:
+	// - Offset 0: current entry to test
+gettbl:
+	SAVE 1
+
+	// Set current table pointer
+	LDA 0, -6, 3
+	STA 0, 1, 3
+
+gettbl_loop:
+	// Set AC0 = current string to test
+	LDA 2, 1, 3
+	LDA 0, 0, 2
+
+	MOV 0, 0, SNR
+	JMP gettbl_notfound
+
+	LDA 1, -5, 3
+	PSH 0, 1
+	EJSR strcmp
+	POP 1, 0
+
+	MOV 2, 2, SNR
+	JMP gettbl_found
+
+	// current += 2
+	LDA 0, 1, 3
+	INC 0,0
+	INC 0,0
+	STA 0, 1, 3
+	JMP gettbl_loop
+
+gettbl_found:
+	LDA 2, 1, 3
+	LDA 0, 1, 2
+
+	STA 0, -2, 3
+	XOR 0, 0
+	STA 0, -3, 3
+
+	RTN
+
+gettbl_notfound:
+	ELEF 0, 1
+	STA 0, -3, 3
+
+	RTN
 
 	// cmdtbl - Trigger a command from a command table
 	//
@@ -178,31 +293,19 @@ cmdtbl:
 
 	// current = table pointer
 	LDA 0, -8, 3
-	STA 0, 1, 3
+	LDA 1, -7, 3
 
-cmdtbl_loop:
-	// AC2 = current entry pointer
-	LDA 2, 1, 3
+	PSH 0, 1
+	JSR gettbl
 
-	// AC0 = table string pointer (*current)
-	LDA 0, 0, 2
+	// Pop twice, because we care about AC1 and AC2
+	POP 0, 0
+	POP 0, 0
 
-	// If NULL → end of table
-	MOV 0,0,SNR
-	JMP cmdtbl_done
+	MOV 1, 1, SZR
+	JMP cmdtbl_notfound
 
-	// ---- strcmp(table_string, command_string) ----
-
-	LDA 1, -7, 3		// command string
-
-	PSH 0,1			// push table string
-	EJSR strcmp
-	POP 1,0
-
-	// strcmp result in AC2
-	// 0 = equal
-	MOV 2,2,SZR
-	JMP cmdtbl_next
+	STA 2, 1, 3
 
 	// ========= MATCH FOUND =========
 
@@ -227,34 +330,23 @@ cmdtbl_frame_loop:
 
 cmdtbl_call:
 	// Load routine pointer: *(current + 1)
-	LDA 2, 1, 3		// AC2 = current
-	LDA 2, 1, 2		// AC2 = routine pointer
+	LDA 2, 1, 3		// AC2 = routine pointer
 
 	JSR 0, 2		// indirect call via AC2
 
 	LDA 1, -5, 3
+	NEG 1, 1
+	MSP 1
 
-cmdtbl_popparams:
-	MOV 1, 1, SNR
-	JMP cmdtbl_done		// safety return
-
-	POP 0, 0
-
-	ELEF 0, 1
-	SUB 0, 1
-
-	JMP cmdtbl_popparams
-
-cmdtbl_next:
-	// current += 2
-	LDA 0, 1, 3
-	INC 0,0
-	INC 0,0
-	STA 0, 1, 3
-	JMP cmdtbl_loop
-
-cmdtbl_done:
 	RTN
+
+cmdtbl_notfound:
+	ELEF 2, notfound_string
+	EJSR print
+
+	RTN
+
+	var notfound_string = "Command not found\r\n"
 
 	// strtok - Tokenise a string
 	//
