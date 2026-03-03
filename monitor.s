@@ -100,6 +100,8 @@ Available commands:\r\n\
 - d\tDeposit a value into a register\r\
 - x\tExamine a register\r\
 - dm\tDeposit memory\r\
+- xm\tExamine memory\r\
+- run\tRun the AP\r\
 - h\tThis help\r\n\
 To get command specific help, use `h [COMMAND]`.\r\n"
 
@@ -154,6 +156,10 @@ Deposit memory will start a new prompt mode, which expects a 64 bit number, spre
 For each set of 4 numbers entered, the data represented will be written to the memory at the current address. The address will then be incremented.\r\n\
 Upon successful writing, deposit memory will be ready for another data. To exit this mode, enter an empty line.\r\n"
 
+	var help_run_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nrun - Run the AP\r\n\
+Syntax:	`run [ADDRESS]`\r\n\
+Start the AP at ADDRESS, and wait for it to halt before returning.\r\n"
+
 	// ============================================================
 	// Commands
 	// ============================================================
@@ -161,14 +167,16 @@ Upon successful writing, deposit memory will be ready for another data. To exit 
 	var examine_command_name = "x"
 	var deposit_memory_command_name = "dm"
 	var examine_memory_command_name = "xm"
+	var run_command_name = "run"
 	var help_command_name = "h"
 
 top_level_command_table:
-	dw deposit_command_name, dep
-	dw examine_command_name, exam
+	dw deposit_command_name,        dep
+	dw examine_command_name,        exam
 	dw deposit_memory_command_name, depmem
 	dw examine_memory_command_name, exammem
-	dw help_command_name,    help
+	dw run_command_name,            run
+	dw help_command_name,           help
 	dw 0, 0
 
 	var psa      = "psa"
@@ -246,6 +254,7 @@ help_tbl:
 	dw examine_command_name, help_examine_string
 	dw deposit_memory_command_name, help_deposit_memory_string
 	dw examine_memory_command_name, help_examine_memory_string
+	dw run_command_name, help_run_string
 	dw 0, 0
 
 help:
@@ -268,6 +277,48 @@ help:
 help_top_level:
 	ELEF 2, help_top_level_string
 	EJSR print
+	RTN
+
+	// run - Run the AP
+	//
+	// Parameters:
+	// - Stack: the start address
+run:
+	SAVE 0
+
+	// First, figure out the start address
+	ELEF 0, mem_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_not_found
+
+	// Set the start address
+	MOV 2, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	// Set to run
+	ELEF 0, FN_START
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+run_wait:
+	ELEF 1, CMD_REG_FN | CMD_PIO
+	DOA 1, FPU
+	DIB 0, FPU
+
+	ELEF 1, FN_STOP
+	AND 0, 1, SNR
+
+	JMP run_wait
+
 	RTN
 
 	var depmem_in_str resv 30
