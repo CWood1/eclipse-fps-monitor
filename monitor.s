@@ -137,17 +137,6 @@ top_level_command_table:
 	dw help_command_name,    help
 	dw 0, 0
 
-	// dep - Deposit a value into the AP
-	//
-	// Parameters:
-	// - Stack: pointer to address string
-	// - Stack: pointer to value string
-	//
-	// Stack variables:
-	// - Offset 0: address to write to
-	//
-	// NOTE: for testing purposes, this doesn't (yet) talk to the AP
-
 	var psa      = "psa"
 	var spd      = "spd"
 	var ma       = "ma"
@@ -214,6 +203,15 @@ help_top_level:
 	EJSR print
 	RTN
 
+	// dep - Deposit a value into the AP
+	//
+	// Parameters:
+	// - Stack: pointer to register name string
+	// - Stack: pointer to value string
+	//
+	// Stack variables:
+	// - Offset 0: register to write to
+	// - Offset 1: the value to write
 dep:
 	SAVE 2
 
@@ -289,7 +287,10 @@ dep_out_of_range:
 	// exam - Examine a value from the AP
 	//
 	// Parameters:
-	// - Stack: pointer to address string
+	// - Stack: pointer to register name string
+	//
+	// Stack variables:
+	// - Offset 0: register to write to
 exam:
 	SAVE 1
 
@@ -426,7 +427,7 @@ cmdtbl:
 	LDA 1, -7, 3
 
 	PSH 0, 1
-	JSR gettbl
+	EJSR gettbl
 
 	// Pop twice, because we care about AC1 and AC2
 	POP 0, 0
