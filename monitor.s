@@ -17,7 +17,22 @@
 	const FN_WORD2 = 0000040
 	const FN_WORD1 = 0000020
 
-	const FN_REG_TMA = 03
+	const FN_REG_PSA      = 00
+	const FN_REG_SPD      = 01
+	const FN_REG_MA       = 02
+	const FN_REG_TMA      = 03
+	const FN_REG_DPA      = 04
+	const FN_REG_SPFN     = 05
+	const FN_REG_APSTATUS = 06
+	const FN_REG_DA       = 07
+
+	const FN_MEM_SP   = 005
+	const FN_MEM_PS   = 010
+	const FN_MEM_INBS = 011
+	const FN_MEM_DPX  = 013
+	const FN_MEM_DPY  = 014
+	const FN_MEM_MD   = 015
+	const FN_MEM_TM   = 017
 
 	const CMD_REG_SR = 0021000
 	const CMD_REG_FN = 0022000
@@ -76,16 +91,50 @@ doprompt:
 	var prompt = "> "
 	var nl = "\r\n"
 	var reg_not_found = "Register not found\r\n"
+	var out_of_range = "Value is too large for the register you're putting it in\r\n"
+
+	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\n\
+Available commands:\r\n\
+- d\tDeposit a value into a register\r\
+- x\tExamine a register\r\
+- h\tThis help\r\n\
+To get command specific help, use `h [COMMAND]`.\r\n"
+
+	var help_deposit_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nd - Deposit Register\r\n\
+Syntax:	`d [REGISTER] [VALUE]`\r\n\
+REGISTER\tThe register in which to deposit. Possible values are:\r\
+- psa\t\tProgram source address register\t\t12 bits\r\
+- spd\t\tS-Pad destination address register\t4 bits\r\
+- ma\t\tMain data memory address register\t16 bits\r\
+- tma\t\tTable memory address register\t\t16 bits\r\
+- dpa\t\tData pad address register\t\t6 bits\r\
+- apstatus\tFPS internal status register\t\t16 bits\r\
+- da\t\tDevice address register\t\t\t8 bits\r\n\
+VALUE\tThe value to deposit in octal. This is range checked.\r\n"
+
+	var help_examine_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nx - Examine Register\r\n\
+Syntax:	`x [REGISTER]`\r\n\
+REGISTER\tThe register to examine. Possible values are:\r\
+- psa\t\tProgram source address register\t\t\t12 bits\r\
+- spd\t\tS-Pad destination address register\t\t4 bits\r\
+- ma\t\tMain data memory address register\t\t16 bits\r\
+- tma\t\tTable memory address register\t\t\t16 bits\r\
+- dpa\t\tData pad address register\t\t\t6 bits\r\
+- spfn\t\tS-Pad functoin currently enabled. Examine only.\t16 bits\r\
+- apstatus\tFPS internal status register\t\t\t16 bits\r\
+- da\t\tDevice address register\t\t\t\t8 bits\r\n"
 
 	// ============================================================
 	// Commands
 	// ============================================================
 	var deposit_command_name = "d"
 	var examine_command_name = "x"
+	var help_command_name = "h"
 
 top_level_command_table:
 	dw deposit_command_name, dep
 	dw examine_command_name, exam
+	dw help_command_name,    help
 	dw 0, 0
 
 	// dep - Deposit a value into the AP
@@ -99,17 +148,74 @@ top_level_command_table:
 	//
 	// NOTE: for testing purposes, this doesn't (yet) talk to the AP
 
-	var tma = "tma"
+	var psa      = "psa"
+	var spd      = "spd"
+	var ma       = "ma"
+	var tma      = "tma"
+	var dpa      = "dpa"
+	var spfn     = "spfn"
+	var apstatus = "apstatus"
+	var da       = "da"
+
+reg_max_tbl:
+	dw psa,      0007777
+	dw spd,      0000017
+	dw ma,       0177777
+	dw tma,      0177777
+	dw dpa,      0000077
+	dw apstatus, 0177777
+	dw da,       0000377
+
 dep_tbl:
-	dw tma, FN_DEP | FN_REG_TMA
+	dw psa,      FN_DEP | FN_REG_PSA
+	dw spd,      FN_DEP | FN_REG_SPD
+	dw ma,       FN_DEP | FN_REG_MA
+	dw tma,      FN_DEP | FN_REG_TMA
+	dw dpa,      FN_DEP | FN_REG_DPA
+	dw apstatus, FN_DEP | FN_REG_APSTATUS
+	dw da,       FN_DEP | FN_REG_DA
 	dw 0, 0
 
 exam_tbl:
-	dw tma, FN_EXAM | FN_REG_TMA
+	dw psa,      FN_EXAM | FN_REG_PSA
+	dw spd,      FN_EXAM | FN_REG_SPD
+	dw ma,       FN_EXAM | FN_REG_MA
+	dw tma,      FN_EXAM | FN_REG_TMA
+	dw dpa,      FN_EXAM | FN_REG_DPA
+	dw spfn,     FN_EXAM | FN_REG_SPFN
+	dw apstatus, FN_EXAM | FN_REG_APSTATUS
+	dw da,       FN_EXAM | FN_REG_DA
 	dw 0, 0
 
+help_tbl:
+	dw deposit_command_name, help_deposit_string
+	dw examine_command_name, help_examine_string
+	dw 0, 0
+
+help:
+	SAVE 0
+
+	ELEF 0, help_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP help_top_level
+
+	// The string pointer is already in register 2
+	EJSR print
+	RTN
+
+help_top_level:
+	ELEF 2, help_top_level_string
+	EJSR print
+	RTN
+
 dep:
-	SAVE 1
+	SAVE 2
 
 	// First, get the actual function to run
 	ELEF 0, dep_tbl
@@ -135,8 +241,26 @@ dep:
 	MOV 1, 1, SZR
 	JMP dep_done
 
+	STA 2, 2, 3
+
+	// Next, get the maximum for the register in question
+	ELEF 0, reg_max_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	// This shouldn't happen, but check it anyway as there might be a bug
+	MOV 1, 1, SZR
+	JMP dep_not_found
+
+	// If the max is greater than or equal to the value we got, we're valid
+	ELEF 0, 2, 3
+	SGE 2, 0
+	JMP dep_out_of_range
+
 	// Set the switches to the value we wish to write
-	MOV 2, 0
 	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -152,6 +276,12 @@ dep_done:
 
 dep_not_found:
 	ELEF 2, reg_not_found
+	EJSR print
+
+	RTN
+
+dep_out_of_range:
+	ELEF 2, out_of_range
 	EJSR print
 
 	RTN
