@@ -87,7 +87,7 @@ doprompt:
 	var command_str resv 80
 	var command_tokens resv 9
 
-	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n"
+	var banner = "Eclipse FPS100 Resident Monitor v0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n"
 	var prompt = "> "
 	var nl = "\r\n"
 	var space = " "
@@ -95,7 +95,7 @@ doprompt:
 	var mem_not_found = "Memory not found\r\n"
 	var out_of_range = "Value is too large for the register you're putting it in\r\n"
 
-	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\n\
+	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.1\r\n\
 Available commands:\r\n\
 - d\tDeposit a value into a register\r\
 - x\tExamine a register\r\
@@ -105,7 +105,7 @@ Available commands:\r\n\
 - h\tThis help\r\n\
 To get command specific help, use `h [COMMAND]`.\r\n"
 
-	var help_deposit_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nd - Deposit Register\r\n\
+	var help_deposit_string = "Eclipse FPS100 Resident Monitor v0.1\r\nd - Deposit Register\r\n\
 Syntax:	`d [REGISTER] [VALUE]`\r\n\
 REGISTER\tThe register in which to deposit. Possible values are:\r\
 - psa\t\tProgram source address register\t\t12 bits\r\
@@ -117,7 +117,7 @@ REGISTER\tThe register in which to deposit. Possible values are:\r\
 - da\t\tDevice address register\t\t\t8 bits\r\n\
 VALUE\tThe value to deposit in octal. This is range checked.\r\n"
 
-	var help_examine_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nx - Examine Register\r\n\
+	var help_examine_string = "Eclipse FPS100 Resident Monitor v0.1\r\nx - Examine Register\r\n\
 Syntax:	`x [REGISTER]`\r\n\
 REGISTER\tThe register to examine. Possible values are:\r\
 - psa\t\tProgram source address register\t\t\t12 bits\r\
@@ -129,7 +129,7 @@ REGISTER\tThe register to examine. Possible values are:\r\
 - apstatus\tFPS internal status register\t\t\t16 bits\r\
 - da\t\tDevice address register\t\t\t\t8 bits\r\n"
 
-	var help_examine_memory_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nxm - Examine Memory\r\n\
+	var help_examine_memory_string = "Eclipse FPS100 Resident Monitor v0.1\r\nxm - Examine Memory\r\n\
 Syntax:	`xm [MEMORY] [ADDRESS] [COUNT]`\r\n\
 MEMORY\tThe memory to read from. Possible values are:\r\
 - sp\tS-Pad data\r\
@@ -142,7 +142,7 @@ ADDRESS\tThe address to start reading from.\r\
 COUNT\tThe number of consecutive 64 bit words to read.\r\n\
 Examine memory will read COUNT 64 bit words, starting at ADDRESS. Each one shall be output on the console.\r\n"
 
-	var help_deposit_memory_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\ndm - Deposit Memory\r\n\
+	var help_deposit_memory_string = "Eclipse FPS100 Resident Monitor v0.1\r\ndm - Deposit Memory\r\n\
 Syntax:	`dm [MEMORY] [ADDRESS]`\r\n\
 MEMORY\tThe memory to write to. Possible values are:\r\
 - sp\tS-Pad data\r\
@@ -156,7 +156,7 @@ Deposit memory will start a new prompt mode, which expects a 64 bit number, spre
 For each set of 4 numbers entered, the data represented will be written to the memory at the current address. The address will then be incremented.\r\n\
 Upon successful writing, deposit memory will be ready for another data. To exit this mode, enter an empty line.\r\n"
 
-	var help_run_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nrun - Run the AP\r\n\
+	var help_run_string = "Eclipse FPS100 Resident Monitor v0.1\r\nrun - Run the AP\r\n\
 Syntax:	`run [ADDRESS]`\r\n\
 Start the AP at ADDRESS, and wait for it to halt before returning.\r\n"
 
