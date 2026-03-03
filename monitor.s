@@ -2,20 +2,20 @@
 	dev TTO = 011
 	dev FPU = 054
 
-	const FN_STOP  = 0100000
-	const FN_START = 0040000
-	const FN_CONT  = 0020000
-	const FN_STEP  = 0010000
-	const FN_RESET = 0004000
-	const FN_EXAM  = 0002000
-	const FN_DEP   = 0001000
-	const FN_BREAK = 0000400
-	const FN_INC3  = 0000300
-	const FN_INC2  = 0000200
-	const FN_INC1  = 0000100
-	const FN_WORD3 = 0000060
-	const FN_WORD2 = 0000040
-	const FN_WORD1 = 0000020
+	const FN_STOP    = 0100000
+	const FN_START   = 0040000
+	const FN_CONT    = 0020000
+	const FN_STEP    = 0010000
+	const FN_RESET   = 0004000
+	const FN_EXAM    = 0002000
+	const FN_DEP     = 0001000
+	const FN_BREAK   = 0000400
+	const FN_INC_TMA = 0000300
+	const FN_INC_DPA = 0000200
+	const FN_INC_MA  = 0000100
+	const FN_WORD3   = 0000060
+	const FN_WORD2   = 0000040
+	const FN_WORD1   = 0000020
 
 	const FN_REG_PSA      = 00
 	const FN_REG_SPD      = 01
@@ -91,12 +91,14 @@ doprompt:
 	var prompt = "> "
 	var nl = "\r\n"
 	var reg_not_found = "Register not found\r\n"
+	var mem_not_found = "Memory not found\r\n"
 	var out_of_range = "Value is too large for the register you're putting it in\r\n"
 
 	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\n\
 Available commands:\r\n\
 - d\tDeposit a value into a register\r\
 - x\tExamine a register\r\
+- dm\tDeposit memory\r\
 - h\tThis help\r\n\
 To get command specific help, use `h [COMMAND]`.\r\n"
 
@@ -122,18 +124,34 @@ REGISTER\tThe register to examine. Possible values are:\r\
 - dpa\t\tData pad address register\t\t\t6 bits\r\
 - spfn\t\tS-Pad functoin currently enabled. Examine only.\t16 bits\r\
 - apstatus\tFPS internal status register\t\t\t16 bits\r\
-- da\t\tDevice address register\t\t\t\t8 bits\r\n"
+	- da\t\tDevice address register\t\t\t\t8 bits\r\n"
+
+	var help_deposit_memory_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\ndm - Deposit Memory\r\n\
+Syntax:	`dm [MEMORY] [ADDRESS]`\r\n\
+MEMORY\tThe memory to write to. Possible values are:\r\
+- sp\tS-Pad data\r\
+- ps\tProgram source memory\r\
+- dpx\tData Pad X\r\
+- dpy\tData Pad Y\r\
+- md\tMain data memory\r\
+- tm\tTable memory\r\n\
+ADDRESS\tThe address to start writing from.\r\n\
+Deposit memory will start a new prompt mode, which expects a 64 bit number, spread across 4 16-bit octal numbers.\r\n\
+For each set of 4 numbers entered, the data represented will be written to the memory at the current address. The address will then be incremented.\r\n\
+Upon successful writing, deposit memory will be ready for another data. To exit this mode, enter an empty line.\r\n"
 
 	// ============================================================
 	// Commands
 	// ============================================================
 	var deposit_command_name = "d"
 	var examine_command_name = "x"
+	var deposit_memory_command_name = "dm"
 	var help_command_name = "h"
 
 top_level_command_table:
 	dw deposit_command_name, dep
 	dw examine_command_name, exam
+	dw deposit_memory_command_name, depmem
 	dw help_command_name,    help
 	dw 0, 0
 
@@ -145,6 +163,13 @@ top_level_command_table:
 	var spfn     = "spfn"
 	var apstatus = "apstatus"
 	var da       = "da"
+
+	var sp       = "sp"
+	var ps       = "ps"
+	var dpx      = "dpx"
+	var dpy      = "dpy"
+	var md       = "md"
+	var tm       = "tm"
 
 reg_max_tbl:
 	dw psa,      0007777
@@ -176,9 +201,34 @@ exam_tbl:
 	dw da,       FN_EXAM | FN_REG_DA
 	dw 0, 0
 
+depmem_tbl:
+	dw sp,  FN_REG_SPD
+	dw ps,  FN_REG_TMA
+	dw dpx, FN_REG_DPA
+	dw dpy, FN_REG_DPA
+	dw md,  FN_REG_MA
+	dw tm,  FN_REG_TMA
+
+depmem_memtbl:
+	dw sp,  FN_MEM_SP
+	dw ps,  FN_MEM_PS
+	dw dpx, FN_MEM_DPX
+	dw dpy, FN_MEM_DPY
+	dw md,  FN_MEM_MD
+	dw tm,  FN_MEM_TM
+
+depmem_inctbl:
+	dw sp,  0
+	dw ps,  FN_INC_TMA
+	dw dpx, FN_INC_DPA
+	dw dpy, FN_INC_DPA
+	dw md,  FN_INC_MA
+	dw tm,  FN_INC_TMA
+
 help_tbl:
 	dw deposit_command_name, help_deposit_string
 	dw examine_command_name, help_examine_string
+	dw deposit_memory_command_name, help_deposit_memory_string
 	dw 0, 0
 
 help:
@@ -203,6 +253,246 @@ help_top_level:
 	EJSR print
 	RTN
 
+	var depmem_in_str resv 30
+	var depmem_in_tokens resv 5
+	// depmem - Deposit values into the AP memory
+	//
+	// Parameters:
+	// - Stack: pointer to memory name string
+	// - Stack: pointer to address string
+	//
+	// Inputs:
+	// - Data to deposit - 4 consecutive, space separated 16 bit values
+	// - On finished, empty line
+	//
+	// Stack variables:
+	// - Offset 1: the register to use
+	// - Offset 2: the starting address
+	// - Offset 3: the old register value
+	// - Offset 4: the memory to use
+	// - Offset 5: the inc value to use
+depmem:
+	SAVE 5
+
+	// First, get which register we're using
+	ELEF 0, depmem_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_not_found
+	STA 2, 1, 3
+
+	// Next, get which memory we're using
+	ELEF 0, depmem_memtbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_not_found
+	STA 2, 4, 3
+
+	// Next, get which inc value to use
+	ELEF 0, depmem_inctbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_not_found
+	STA 2, 5, 3
+
+	// Next, convert the starting address
+	LDA 2, -10, 3
+	MOV 2, 2, SNR
+	JMP depmem_skip
+
+	PSH 2, 2
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_skip
+
+	STA 0, 2, 3
+
+	// Read the register as was
+	LDA 0, 1, 3
+	ELEF 1, FN_EXAM
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, CMD_REG_LT | CMD_PIO
+	DOA 1, FPU
+	DIB 0, FPU
+
+	STA 0, 3, 3
+
+	// Set the new value, in order to start writing to memory
+	LDA 0, 1, 3
+	ELEF 1, FN_DEP
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 2, 3
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+depmem_write_64:	
+	// Read in the next line
+	ELEF 0, depmem_in_str
+	PSH 0, 0
+	EJSR input
+	POP 0, 0
+
+	ELEF 2, depmem_in_str
+	LDA 0, 0, 2
+	MOV 0, 0, SNR
+	JMP depmem_done
+
+	ELEF 0, depmem_in_str
+	ELEF 1, depmem_in_tokens
+	ELEF 2, 4
+	PSH 0, 2
+	EJSR strtok
+	POP 2, 0
+
+	// Convert each value from octal
+	ELEF 2, depmem_in_tokens
+
+	LDA 0, 3, 2
+	PSH 0, 0
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_done
+
+	PSH 2, 2
+
+	LDA 0, 2, 2
+	PSH 0, 0
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_done
+
+	PSH 2, 2
+
+	LDA 0, 1, 2
+	PSH 0, 0
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_done
+
+	PSH 2, 2
+
+	LDA 0, 0, 2
+	PSH 0, 0
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP depmem_done
+
+	PSH 2, 2
+
+	// Write the value out
+	POP 0, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 4, 3
+	ELEF 1, FN_DEP
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	POP 0, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 4, 3
+	ELEF 1, FN_DEP | FN_WORD1
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	POP 0, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 4, 3
+	ELEF 1, FN_DEP | FN_WORD2
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	POP 0, 0
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 4, 3
+	LDA 1, 5, 3
+	IOR 1, 0
+	ELEF 1, FN_DEP | FN_WORD3
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	JMP depmem_write_64
+
+depmem_done:
+	// Restore the old value
+	LDA 0, 1, 3
+	ELEF 1, FN_DEP
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 3, 3
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	RTN
+
+depmem_skip:
+	RTN
+
+depmem_not_found:	
+	ELEF 2, mem_not_found
+	EJSR print
+	RTN
+
 	// dep - Deposit a value into the AP
 	//
 	// Parameters:
@@ -210,8 +500,8 @@ help_top_level:
 	// - Stack: pointer to value string
 	//
 	// Stack variables:
-	// - Offset 0: register to write to
-	// - Offset 1: the value to write
+	// - Offset 1: register to write to
+	// - Offset 2: the value to write
 dep:
 	SAVE 2
 
