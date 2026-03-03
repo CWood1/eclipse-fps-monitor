@@ -90,6 +90,7 @@ doprompt:
 	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n"
 	var prompt = "> "
 	var nl = "\r\n"
+	var space = " "
 	var reg_not_found = "Register not found\r\n"
 	var mem_not_found = "Memory not found\r\n"
 	var out_of_range = "Value is too large for the register you're putting it in\r\n"
@@ -124,7 +125,20 @@ REGISTER\tThe register to examine. Possible values are:\r\
 - dpa\t\tData pad address register\t\t\t6 bits\r\
 - spfn\t\tS-Pad functoin currently enabled. Examine only.\t16 bits\r\
 - apstatus\tFPS internal status register\t\t\t16 bits\r\
-	- da\t\tDevice address register\t\t\t\t8 bits\r\n"
+- da\t\tDevice address register\t\t\t\t8 bits\r\n"
+
+	var help_examine_memory_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\nxm - Examine Memory\r\n\
+Syntax:	`xm [MEMORY] [ADDRESS] [COUNT]`\r\n\
+MEMORY\tThe memory to read from. Possible values are:\r\
+- sp\tS-Pad data\r\
+- ps\tProgram source memory\r\
+- dpx\tData Pad X\r\
+- dpy\tData Pad Y\r\
+- md\tMain data memory\r\
+- tm\tTable memory\r\n\
+ADDRESS\tThe address to start reading from.\r\
+COUNT\tThe number of consecutive 64 bit words to read.\r\n\
+Examine memory will read COUNT 64 bit words, starting at ADDRESS. Each one shall be output on the console.\r\n"
 
 	var help_deposit_memory_string = "Eclipse FPS100 Resident Monitor v0.0.1\r\ndm - Deposit Memory\r\n\
 Syntax:	`dm [MEMORY] [ADDRESS]`\r\n\
@@ -146,12 +160,14 @@ Upon successful writing, deposit memory will be ready for another data. To exit 
 	var deposit_command_name = "d"
 	var examine_command_name = "x"
 	var deposit_memory_command_name = "dm"
+	var examine_memory_command_name = "xm"
 	var help_command_name = "h"
 
 top_level_command_table:
 	dw deposit_command_name, dep
 	dw examine_command_name, exam
 	dw deposit_memory_command_name, depmem
+	dw examine_memory_command_name, exammem
 	dw help_command_name,    help
 	dw 0, 0
 
@@ -201,7 +217,7 @@ exam_tbl:
 	dw da,       FN_EXAM | FN_REG_DA
 	dw 0, 0
 
-depmem_tbl:
+mem_tbl:
 	dw sp,  FN_REG_SPD
 	dw ps,  FN_REG_TMA
 	dw dpx, FN_REG_DPA
@@ -209,7 +225,7 @@ depmem_tbl:
 	dw md,  FN_REG_MA
 	dw tm,  FN_REG_TMA
 
-depmem_memtbl:
+mem_memtbl:
 	dw sp,  FN_MEM_SP
 	dw ps,  FN_MEM_PS
 	dw dpx, FN_MEM_DPX
@@ -217,7 +233,7 @@ depmem_memtbl:
 	dw md,  FN_MEM_MD
 	dw tm,  FN_MEM_TM
 
-depmem_inctbl:
+mem_inctbl:
 	dw sp,  0
 	dw ps,  FN_INC_TMA
 	dw dpx, FN_INC_DPA
@@ -229,6 +245,7 @@ help_tbl:
 	dw deposit_command_name, help_deposit_string
 	dw examine_command_name, help_examine_string
 	dw deposit_memory_command_name, help_deposit_memory_string
+	dw examine_memory_command_name, help_examine_memory_string
 	dw 0, 0
 
 help:
@@ -255,6 +272,7 @@ help_top_level:
 
 	var depmem_in_str resv 30
 	var depmem_in_tokens resv 5
+
 	// depmem - Deposit values into the AP memory
 	//
 	// Parameters:
@@ -275,7 +293,7 @@ depmem:
 	SAVE 5
 
 	// First, get which register we're using
-	ELEF 0, depmem_tbl
+	ELEF 0, mem_tbl
 	LDA 1, -11, 3
 	PSH 0, 1
 	EJSR gettbl
@@ -287,7 +305,7 @@ depmem:
 	STA 2, 1, 3
 
 	// Next, get which memory we're using
-	ELEF 0, depmem_memtbl
+	ELEF 0, mem_memtbl
 	LDA 1, -11, 3
 	PSH 0, 1
 	EJSR gettbl
@@ -299,8 +317,8 @@ depmem:
 	STA 2, 4, 3
 
 	// Next, get which inc value to use
-	ELEF 0, depmem_inctbl
-	LDA 1, -11, 3
+	ELEF 0, mem_inctbl
+	LDA 1, -9, 3
 	PSH 0, 1
 	EJSR gettbl
 	POP 0, 0
@@ -322,7 +340,7 @@ depmem:
 	MOV 1, 1, SZR
 	JMP depmem_skip
 
-	STA 0, 2, 3
+	STA 2, 2, 3
 
 	// Read the register as was
 	LDA 0, 1, 3
@@ -489,6 +507,234 @@ depmem_skip:
 	RTN
 
 depmem_not_found:	
+	ELEF 2, mem_not_found
+	EJSR print
+	RTN
+
+	// exammem - Examine values from the AP memory
+	//
+	// Parameters:
+	// - Stack: pointer to memory name string
+	// - Stack: pointer to address string
+	// - Stack: number of words to examine
+	//
+	// Stack variables:
+	// - Offset 1: the register to use
+	// - Offset 2: the starting address
+	// - Offset 3: the old register value
+	// - Offset 4: the memory to use
+	// - Offset 5: the inc value to use
+	// - Offset 6: the number of values to read
+	// - Offset 7: the number of values read so far
+exammem:
+	SAVE 7
+
+	// First, get which register we're using
+	ELEF 0, mem_tbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exammem_not_found
+	STA 2, 1, 3
+
+	// Next, get which memory we're using
+	ELEF 0, mem_memtbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exammem_not_found
+	STA 2, 4, 3
+
+	// Next, get which inc value to use
+	ELEF 0, mem_inctbl
+	LDA 1, -11, 3
+	PSH 0, 1
+	EJSR gettbl
+	POP 0, 0
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exammem_not_found
+	STA 2, 5, 3
+
+	// Next, convert the starting address
+	LDA 2, -10, 3
+	MOV 2, 2, SNR
+	JMP exammem_skip
+
+	PSH 2, 2
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exammem_skip
+
+	STA 2, 2, 3
+
+	// Convert the number of values to read
+	LDA 2, -9, 3
+	MOV 2, 2, SNR
+	JMP exammem_skip
+
+	PSH 2, 2
+	EJSR string_to_oct
+	POP 0, 0
+
+	MOV 1, 1, SZR
+	JMP exammem_skip
+
+	STA 2, 6, 3
+
+	// Read the register as was
+	LDA 0, 1, 3
+	ELEF 1, FN_EXAM
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, CMD_REG_LT | CMD_PIO
+	DOA 1, FPU
+	DIB 0, FPU
+
+	STA 0, 3, 3
+
+	// Set the new value, in order to start writing to memory
+	LDA 0, 1, 3
+	ELEF 1, FN_DEP
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 2, 3
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	// Set current count = 0
+	XOR 0, 0
+	STA 0, 7, 3
+
+exammem_read_64:	
+	// Read and convert each value from octal
+	LDA 0, 4, 3
+	ELEF 1, FN_EXAM
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, exam_result
+	PSH 0, 1
+	EJSR oct_to_string
+	POP 1, 0
+
+	ELEF 2, exam_result
+	EJSR print
+
+	ELEF 2, space
+	EJSR print
+	
+	LDA 0, 4, 3
+	ELEF 1, FN_EXAM | FN_WORD1
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, exam_result
+	PSH 0, 1
+	EJSR oct_to_string
+	POP 1, 0
+
+	ELEF 2, exam_result
+	EJSR print
+
+	ELEF 2, space
+	EJSR print
+	
+	LDA 0, 4, 3
+	ELEF 1, FN_EXAM | FN_WORD2
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, exam_result
+	PSH 0, 1
+	EJSR oct_to_string
+	POP 1, 0
+
+	ELEF 2, exam_result
+	EJSR print
+
+	ELEF 2, space
+	EJSR print
+	
+	LDA 0, 4, 3
+	LDA 1, 5, 3
+	IOR 1, 0
+	ELEF 1, FN_EXAM | FN_WORD3
+	IOR 1, 0
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	ELEF 1, exam_result
+	PSH 0, 1
+	EJSR oct_to_string
+	POP 1, 0
+
+	ELEF 2, exam_result
+	EJSR print
+
+	ELEF 2, nl
+	EJSR print
+
+	// Increment the wordcount
+	LDA 0, 7, 3
+	INC 0, 0
+	STA 0, 7, 3
+
+	// Check if we're done
+	LDA 1, 6, 3
+	SGT 1, 0
+	JMP exammem_done
+
+	JMP exammem_read_64
+
+exammem_done:
+	// Restore the old value
+	LDA 0, 1, 3
+	ELEF 1, FN_DEP
+	IOR 1, 0
+
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	LDA 0, 3, 3
+	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
+	DOA 1, FPU
+	DOB 0, FPU
+
+	RTN
+
+exammem_skip:
+	RTN
+
+exammem_not_found:	
 	ELEF 2, mem_not_found
 	EJSR print
 	RTN
