@@ -87,7 +87,7 @@ doprompt:
 	var command_str resv 80
 	var command_tokens resv 9
 
-	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\n"
+	var banner = "Eclipse FPS100 Resident Monitor v0.0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n"
 	var prompt = "> "
 	var nl = "\r\n"
 	var reg_not_found = "Register not found\r\n"
