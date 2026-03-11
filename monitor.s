@@ -595,19 +595,29 @@ depmem_syntax_error:
 	// - Offset 5: the inc value to use
 	// - Offset 6: the number of values to read
 	// - Offset 7: the number of values read so far
+exammem_syntax_error_2:
+	EJMP exammem_syntax_error
+exammem_not_found_2:
+	EJMP exammem_not_found
+exammem_skip_2:
+	EJMP exammem_skip
 exammem:
 	SAVE 7
 
 	// First, get which register we're using
 	ELEF 0, mem_tbl
+
 	LDA 1, -11, 3
+	MOV 1, 1, SNR
+	JMP exammem_syntax_error_2
+
 	PSH 0, 1
 	EJSR gettbl
 	POP 0, 0
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	EJMP exammem_not_found
+	JMP exammem_not_found_2
 	STA 2, 1, 3
 
 	// Next, get which memory we're using
@@ -619,7 +629,7 @@ exammem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	EJMP exammem_not_found
+	JMP exammem_not_found_2
 	STA 2, 4, 3
 
 	// Next, get which inc value to use
@@ -631,34 +641,34 @@ exammem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	EJMP exammem_not_found
+	JMP exammem_not_found_2
 	STA 2, 5, 3
 
 	// Next, convert the starting address
 	LDA 2, -10, 3
 	MOV 2, 2, SNR
-	EJMP exammem_skip
+	JMP exammem_syntax_error_2
 
 	PSH 2, 2
 	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	EJMP exammem_skip
+	JMP exammem_syntax_error_2
 
 	STA 2, 2, 3
 
 	// Convert the number of values to read
 	LDA 2, -9, 3
 	MOV 2, 2, SNR
-	EJMP exammem_skip
+	JMP exammem_skip_2
 
 	PSH 2, 2
 	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	EJMP exammem_skip
+	JMP exammem_syntax_error_2
 
 	STA 2, 6, 3
 
@@ -805,6 +815,11 @@ exammem_skip:
 
 exammem_not_found:	
 	ELEF 2, mem_not_found
+	EJSR print
+	RTN
+
+exammem_syntax_error:
+	ELEF 2, syntax_error
 	EJSR print
 	RTN
 
