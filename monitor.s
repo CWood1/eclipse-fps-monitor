@@ -87,14 +87,14 @@ doprompt:
 	var command_str resv 80
 	var command_tokens resv 9
 
-	var banner = "Eclipse FPS100 Resident Monitor v0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n"
-	var prompt = "> "
-	var nl = "\r\n"
-	var space = " "
-	var reg_not_found = "Register not found\r\n"
-	var mem_not_found = "Memory not found\r\n"
-	var out_of_range = "Value is too large for the register you're putting it in\r\n"
-	var syntax_error = "Syntax error\r\n"
+	var banner = "Eclipse FPS100 Resident Monitor v0.1\r\nAuthored by Venos\r\n\nType `h` for help\r\n\n" packed
+	var prompt = "> " packed
+	var nl = "\r\n" packed
+	var space = " " packed
+	var reg_not_found = "Register not found\r\n" packed
+	var mem_not_found = "Memory not found\r\n" packed
+	var out_of_range = "Value is too large for the register you're putting it in\r\n" packed
+	var syntax_error = "Syntax error\r\n" packed
 
 	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.1\r\n\
 Available commands:\r\n\
@@ -104,7 +104,7 @@ Available commands:\r\n\
 - xm\tExamine memory\r\
 - run\tRun the AP\r\
 - h\tThis help\r\n\
-To get command specific help, use `h [COMMAND]`.\r\n"
+To get command specific help, use `h [COMMAND]`.\r\n" packed
 
 	var help_deposit_string = "Eclipse FPS100 Resident Monitor v0.1\r\nd - Deposit Register\r\n\
 Syntax:	`d [REGISTER] [VALUE]`\r\n\
@@ -116,7 +116,7 @@ REGISTER\tThe register in which to deposit. Possible values are:\r\
 - dpa\t\tData pad address register\t\t6 bits\r\
 - apstatus\tFPS internal status register\t\t16 bits\r\
 - da\t\tDevice address register\t\t\t8 bits\r\n\
-VALUE\tThe value to deposit in octal. This is range checked.\r\n"
+VALUE\tThe value to deposit in octal. This is range checked.\r\n" packed
 
 	var help_examine_string = "Eclipse FPS100 Resident Monitor v0.1\r\nx - Examine Register\r\n\
 Syntax:	`x [REGISTER]`\r\n\
@@ -128,7 +128,7 @@ REGISTER\tThe register to examine. Possible values are:\r\
 - dpa\t\tData pad address register\t\t\t6 bits\r\
 - spfn\t\tS-Pad functoin currently enabled. Examine only.\t16 bits\r\
 - apstatus\tFPS internal status register\t\t\t16 bits\r\
-- da\t\tDevice address register\t\t\t\t8 bits\r\n"
+- da\t\tDevice address register\t\t\t\t8 bits\r\n" packed
 
 	var help_examine_memory_string = "Eclipse FPS100 Resident Monitor v0.1\r\nxm - Examine Memory\r\n\
 Syntax:	`xm [MEMORY] [ADDRESS] [COUNT]`\r\n\
@@ -141,7 +141,7 @@ MEMORY\tThe memory to read from. Possible values are:\r\
 - tm\tTable memory\r\n\
 ADDRESS\tThe address to start reading from.\r\
 COUNT\tThe number of consecutive 64 bit words to read.\r\n\
-Examine memory will read COUNT 64 bit words, starting at ADDRESS. Each one shall be output on the console.\r\n"
+Examine memory will read COUNT 64 bit words, starting at ADDRESS. Each one shall be output on the console.\r\n" packed
 
 	var help_deposit_memory_string = "Eclipse FPS100 Resident Monitor v0.1\r\ndm - Deposit Memory\r\n\
 Syntax:	`dm [MEMORY] [ADDRESS]`\r\n\
@@ -155,11 +155,11 @@ MEMORY\tThe memory to write to. Possible values are:\r\
 ADDRESS\tThe address to start writing from.\r\n\
 Deposit memory will start a new prompt mode, which expects a 64 bit number, spread across 4 16-bit octal numbers.\r\n\
 For each set of 4 numbers entered, the data represented will be written to the memory at the current address. The address will then be incremented.\r\n\
-Upon successful writing, deposit memory will be ready for another data. To exit this mode, enter an empty line.\r\n"
+Upon successful writing, deposit memory will be ready for another data. To exit this mode, enter an empty line.\r\n" packed
 
 	var help_run_string = "Eclipse FPS100 Resident Monitor v0.1\r\nrun - Run the AP\r\n\
 Syntax:	`run [ADDRESS]`\r\n\
-Start the AP at ADDRESS, and wait for it to halt before returning.\r\n"
+Start the AP at ADDRESS, and wait for it to halt before returning.\r\n" packed
 
 	// ============================================================
 	// Commands
@@ -727,7 +727,7 @@ exammem_read_64:
 	POP 1, 0
 
 	ELEF 2, exam_result
-	EJSR print
+	EJSR print_unpacked
 
 	ELEF 2, space
 	EJSR print
@@ -745,7 +745,7 @@ exammem_read_64:
 	POP 1, 0
 
 	ELEF 2, exam_result
-	EJSR print
+	EJSR print_unpacked
 
 	ELEF 2, space
 	EJSR print
@@ -763,7 +763,7 @@ exammem_read_64:
 	POP 1, 0
 
 	ELEF 2, exam_result
-	EJSR print
+	EJSR print_unpacked
 
 	ELEF 2, space
 	EJSR print
@@ -783,7 +783,7 @@ exammem_read_64:
 	POP 1, 0
 
 	ELEF 2, exam_result
-	EJSR print
+	EJSR print_unpacked
 
 	ELEF 2, nl
 	EJSR print
@@ -954,7 +954,7 @@ exam:
 	POP 1, 0
 
 	ELEF 2, exam_result
-	EJSR print
+	EJSR print_unpacked
 
 	ELEF 2, nl
 	EJSR print
@@ -1106,7 +1106,7 @@ cmdtbl_notfound:
 
 	RTN
 
-	var notfound_string = "Command not found\r\n"
+	var notfound_string = "Command not found\r\n" packed
 
 	// strtok - Tokenise a string
 	//
@@ -1470,6 +1470,32 @@ strcmp_eq:
 	STA 2, -2, 3
 	RTN
 	
+	// print_unpacked - Print a zero terminated string
+	//
+	// Parameters:
+	// -  AC2: String to print
+print_unpacked:
+	SAVE 0
+
+print_unpacked_outerloop:
+	LDA 0, 0, 2
+	MOV 0,0,SNR
+	JMP print_unpacked_done
+
+print_unpacked_outputloop:	
+	SKPBZ TTO
+	JMP print_unpacked_outputloop
+
+	DOAS 0, TTO
+
+	INC 2, 2
+	JMP print_unpacked_outerloop
+
+print_unpacked_done:
+	SKPBZ TTO
+	JMP print_unpacked_done
+	RTN
+
 	// print - Print a zero terminated string
 	//
 	// Parameters:
@@ -1477,14 +1503,28 @@ strcmp_eq:
 print:
 	SAVE 0
 
-print_outerloop:	
-	LDA 0, 0, 2
+print_outerloop:
+	MOV 2, 1
+	MOVZL 1, 1
+	LDB 1, 0
 	MOV 0,0,SNR
 	JMP print_done
 
 print_outputloop:	
 	SKPBZ TTO
 	JMP print_outputloop
+
+	DOAS 0, TTO
+
+	ELEF 0, 1
+	IOR 0, 1
+	LDB 1, 0
+	MOV 0,0,SNR
+	JMP print_done
+
+print_outputloop2:
+	SKPBZ TTO
+	JMP print_outputloop2
 
 	DOAS 0, TTO
 
