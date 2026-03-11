@@ -287,16 +287,18 @@ help_top_level:
 run:
 	SAVE 0
 
-	// First, figure out the start address
-	ELEF 0, mem_tbl
-	LDA 1, -11, 3
-	PSH 0, 1
-	EJSR gettbl
-	POP 0, 0
+	LDA 2, -11, 3
+	MOV 2, 2, SNR
+	JMP run_syntax_error
+
+	PSH 2, 2
+	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP run_not_found
+	JMP run_syntax_error
+
+	STA 2, 2, 3
 
 	// Set the start address
 	MOV 2, 0
@@ -324,6 +326,11 @@ run_wait:
 
 run_not_found:	
 	ELEF 2, mem_not_found
+	EJSR print
+	RTN
+
+run_syntax_error:
+	ELEF 2, syntax_error
 	EJSR print
 	RTN
 
