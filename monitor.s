@@ -1212,29 +1212,26 @@ input:
 
 input_loop:
 	SKPDN TTI
-	JMP input_loop
+	JMP .-1
 	DIAS 0, TTI
 
-input_outloop:
 	SKPBZ TTO
-	JMP input_outloop
+	JMP .-1
 	DOAS 0, TTO
 
 	// Check if the received byte is \n
-	SUB 0, 1, SNR
+	SUB# 0, 1, SNR
 	JMP input_done
 
 	// Store the byte, incerement the pointer
 	STA 0, 0, 2
 	INC 2, 2
 
-	// Reload the \r (this is only necessary as dgasm doesn't support SUB# yet)
-	ELEF 1, 015
 	JMP input_loop
 
-input_done:
+input_done:	
 	SKPBZ TTO
-	JMP input_done
+	JMP .-1
 
 	ELEF 0, 012
 	DOAS 0, TTO
@@ -1482,18 +1479,17 @@ print_unpacked_outerloop:
 	MOV 0,0,SNR
 	JMP print_unpacked_done
 
-print_unpacked_outputloop:	
 	SKPBZ TTO
-	JMP print_unpacked_outputloop
+	JMP .-1
 
 	DOAS 0, TTO
 
 	INC 2, 2
 	JMP print_unpacked_outerloop
 
-print_unpacked_done:
+print_unpacked_done:	
 	SKPBZ TTO
-	JMP print_unpacked_done
+	JMP .-1
 	RTN
 
 	// print - Print a zero terminated string
@@ -1509,10 +1505,9 @@ print_outerloop:
 	LDB 1, 0
 	MOV 0,0,SNR
 	JMP print_done
-
-print_outputloop:	
+	
 	SKPBZ TTO
-	JMP print_outputloop
+	JMP .-1
 
 	DOAS 0, TTO
 
@@ -1522,18 +1517,17 @@ print_outputloop:
 	MOV 0,0,SNR
 	JMP print_done
 
-print_outputloop2:
 	SKPBZ TTO
-	JMP print_outputloop2
+	JMP .-1
 
 	DOAS 0, TTO
 
 	INC 2, 2
 	JMP print_outerloop
 
-print_done:
+print_done:	
 	SKPBZ TTO
-	JMP print_done
+	JMP .-1
 	RTN
 
 stack_exhausted:	
