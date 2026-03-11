@@ -94,6 +94,7 @@ doprompt:
 	var reg_not_found = "Register not found\r\n"
 	var mem_not_found = "Memory not found\r\n"
 	var out_of_range = "Value is too large for the register you're putting it in\r\n"
+	var syntax_error = "Syntax error\r\n"
 
 	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.1\r\n\
 Available commands:\r\n\
@@ -295,7 +296,7 @@ run:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP depmem_not_found
+	JMP run_not_found
 
 	// Set the start address
 	MOV 2, 0
@@ -321,6 +322,11 @@ run_wait:
 
 	RTN
 
+run_not_found:	
+	ELEF 2, mem_not_found
+	EJSR print
+	RTN
+
 	var depmem_in_str resv 30
 	var depmem_in_tokens resv 5
 
@@ -340,19 +346,26 @@ run_wait:
 	// - Offset 3: the old register value
 	// - Offset 4: the memory to use
 	// - Offset 5: the inc value to use
+depmem_syntax_error_2:
+	EJMP depmem_syntax_error
+depmem_not_found_2:
+	EJMP depmem_not_found
 depmem:
 	SAVE 5
 
 	// First, get which register we're using
 	ELEF 0, mem_tbl
 	LDA 1, -11, 3
+	MOV 1, 1, SNR
+	JMP depmem_syntax_error_2
+
 	PSH 0, 1
 	EJSR gettbl
 	POP 0, 0
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP depmem_not_found
+	JMP depmem_not_found_2
 	STA 2, 1, 3
 
 	// Next, get which memory we're using
@@ -364,32 +377,32 @@ depmem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP depmem_not_found
+	JMP depmem_not_found_2
 	STA 2, 4, 3
 
 	// Next, get which inc value to use
 	ELEF 0, mem_inctbl
-	LDA 1, -9, 3
+	LDA 1, -11, 3
 	PSH 0, 1
 	EJSR gettbl
 	POP 0, 0
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP depmem_not_found
+	JMP depmem_not_found_2
 	STA 2, 5, 3
 
 	// Next, convert the starting address
 	LDA 2, -10, 3
 	MOV 2, 2, SNR
-	JMP depmem_skip
+	JMP depmem_syntax_error_2
 
 	PSH 2, 2
 	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP depmem_skip
+	JMP depmem_syntax_error_2
 
 	STA 2, 2, 3
 
@@ -562,6 +575,11 @@ depmem_not_found:
 	EJSR print
 	RTN
 
+depmem_syntax_error:
+	ELEF 2, syntax_error
+	EJSR print
+	RTN
+
 	// exammem - Examine values from the AP memory
 	//
 	// Parameters:
@@ -589,7 +607,7 @@ exammem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP exammem_not_found
+	EJMP exammem_not_found
 	STA 2, 1, 3
 
 	// Next, get which memory we're using
@@ -601,7 +619,7 @@ exammem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP exammem_not_found
+	EJMP exammem_not_found
 	STA 2, 4, 3
 
 	// Next, get which inc value to use
@@ -613,34 +631,34 @@ exammem:
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP exammem_not_found
+	EJMP exammem_not_found
 	STA 2, 5, 3
 
 	// Next, convert the starting address
 	LDA 2, -10, 3
 	MOV 2, 2, SNR
-	JMP exammem_skip
+	EJMP exammem_skip
 
 	PSH 2, 2
 	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP exammem_skip
+	EJMP exammem_skip
 
 	STA 2, 2, 3
 
 	// Convert the number of values to read
 	LDA 2, -9, 3
 	MOV 2, 2, SNR
-	JMP exammem_skip
+	EJMP exammem_skip
 
 	PSH 2, 2
 	EJSR string_to_oct
 	POP 0, 0
 
 	MOV 1, 1, SZR
-	JMP exammem_skip
+	EJMP exammem_skip
 
 	STA 2, 6, 3
 
