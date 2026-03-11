@@ -881,8 +881,10 @@ dep:
 	JMP dep_not_found
 
 	// If the max is greater than or equal to the value we got, we're valid
-	ELEF 0, 2, 3
-	SGE 2, 0
+	// 2 = 2 - 0
+	// max = max - actual
+	LDA 0, 2, 3
+	SUBZ 0, 2, SNC
 	JMP dep_out_of_range
 
 	// Set the switches to the value we wish to write
