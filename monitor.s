@@ -317,9 +317,8 @@ run_wait:
 	DOA 1, FPU
 	DIB 0, FPU
 
-	ELEF 1, FN_STOP
-	AND 0, 1, SNR
-
+	ANDI 0, FN_STOP
+	MOV 0, 0, SNR
 	JMP run_wait
 
 	RTN
