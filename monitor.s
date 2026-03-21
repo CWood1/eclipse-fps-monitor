@@ -99,9 +99,9 @@ doprompt:
 	var help_top_level_string = "Eclipse FPS100 Resident Monitor v0.1\r\n\
 Available commands:\r\n\
 - d\tDeposit a value into a register\r\
-- x\tExamine a register\r\
+- e\tExamine a register\r\
 - dm\tDeposit memory\r\
-- xm\tExamine memory\r\
+- em\tExamine memory\r\
 - run\tRun the AP\r\
 - h\tThis help\r\n\
 To get command specific help, use `h [COMMAND]`.\r\n" packed
@@ -119,7 +119,7 @@ REGISTER\tThe register in which to deposit. Possible values are:\r\
 VALUE\tThe value to deposit in octal. This is range checked.\r\n" packed
 
 	var help_examine_string = "Eclipse FPS100 Resident Monitor v0.1\r\nx - Examine Register\r\n\
-Syntax:	`x [REGISTER]`\r\n\
+Syntax:	`e [REGISTER]`\r\n\
 REGISTER\tThe register to examine. Possible values are:\r\
 - psa\t\tProgram source address register\t\t\t12 bits\r\
 - spd\t\tS-Pad destination address register\t\t4 bits\r\
@@ -131,7 +131,7 @@ REGISTER\tThe register to examine. Possible values are:\r\
 - da\t\tDevice address register\t\t\t\t8 bits\r\n" packed
 
 	var help_examine_memory_string = "Eclipse FPS100 Resident Monitor v0.1\r\nxm - Examine Memory\r\n\
-Syntax:	`xm [MEMORY] [ADDRESS] [COUNT]`\r\n\
+Syntax:	`em [MEMORY] [ADDRESS] [COUNT]`\r\n\
 MEMORY\tThe memory to read from. Possible values are:\r\
 - sp\tS-Pad data\r\
 - ps\tProgram source memory\r\
@@ -165,9 +165,9 @@ Start the AP at ADDRESS, and wait for it to halt before returning.\r\n" packed
 	// Commands
 	// ============================================================
 	var deposit_command_name = "d"
-	var examine_command_name = "x"
+	var examine_command_name = "e"
 	var deposit_memory_command_name = "dm"
-	var examine_memory_command_name = "xm"
+	var examine_memory_command_name = "em"
 	var run_command_name = "run"
 	var help_command_name = "h"
 
@@ -414,8 +414,7 @@ depmem:
 
 	// Read the register as was
 	LDA 0, 1, 3
-	ELEF 1, FN_EXAM
-	IOR 1, 0
+	IORI 0, FN_EXAM
 
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
@@ -429,8 +428,7 @@ depmem:
 
 	// Set the new value, in order to start writing to memory
 	LDA 0, 1, 3
-	ELEF 1, FN_DEP
-	IOR 1, 0
+	IORI 0, FN_DEP
 
 	ELEF 1, CMD_REG_SR | CMD_PIO | CMD_WR
 	DOA 1, FPU
@@ -510,8 +508,7 @@ depmem_write_64:
 	DOB 0, FPU
 
 	LDA 0, 4, 3
-	ELEF 1, FN_DEP
-	IOR 1, 0
+	IORI 0, FN_DEP
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -522,8 +519,7 @@ depmem_write_64:
 	DOB 0, FPU
 
 	LDA 0, 4, 3
-	ELEF 1, FN_DEP | FN_WORD1
-	IOR 1, 0
+	IORI 0, FN_DEP | FN_WORD1
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -534,8 +530,7 @@ depmem_write_64:
 	DOB 0, FPU
 
 	LDA 0, 4, 3
-	ELEF 1, FN_DEP | FN_WORD2
-	IOR 1, 0
+	IORI 0, FN_DEP | FN_WORD2
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -548,8 +543,7 @@ depmem_write_64:
 	LDA 0, 4, 3
 	LDA 1, 5, 3
 	IOR 1, 0
-	ELEF 1, FN_DEP | FN_WORD3
-	IOR 1, 0
+	IORI 0, FN_DEP | FN_WORD3
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -559,8 +553,7 @@ depmem_write_64:
 depmem_done:
 	// Restore the old value
 	LDA 0, 1, 3
-	ELEF 1, FN_DEP
-	IOR 1, 0
+	IORI 0, FN_DEP
 
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
@@ -680,8 +673,7 @@ exammem:
 
 	// Read the register as was
 	LDA 0, 1, 3
-	ELEF 1, FN_EXAM
-	IOR 1, 0
+	IORI 0, FN_EXAM
 
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
@@ -714,8 +706,7 @@ exammem:
 exammem_read_64:	
 	// Read and convert each value from octal
 	LDA 0, 4, 3
-	ELEF 1, FN_EXAM
-	IOR 1, 0
+	IORI 0, FN_EXAM
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -732,8 +723,7 @@ exammem_read_64:
 	EJSR print
 	
 	LDA 0, 4, 3
-	ELEF 1, FN_EXAM | FN_WORD1
-	IOR 1, 0
+	IORI 0, FN_EXAM | FN_WORD1
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -750,8 +740,7 @@ exammem_read_64:
 	EJSR print
 	
 	LDA 0, 4, 3
-	ELEF 1, FN_EXAM | FN_WORD2
-	IOR 1, 0
+	IORI 0, FN_EXAM | FN_WORD2
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -770,8 +759,7 @@ exammem_read_64:
 	LDA 0, 4, 3
 	LDA 1, 5, 3
 	IOR 1, 0
-	ELEF 1, FN_EXAM | FN_WORD3
-	IOR 1, 0
+	IORI 0, FN_EXAM | FN_WORD3
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
 	DOB 0, FPU
@@ -802,8 +790,7 @@ exammem_read_64:
 exammem_done:
 	// Restore the old value
 	LDA 0, 1, 3
-	ELEF 1, FN_DEP
-	IOR 1, 0
+	IORI 0, FN_DEP
 
 	ELEF 1, CMD_REG_FN | CMD_PIO | CMD_WR
 	DOA 1, FPU
